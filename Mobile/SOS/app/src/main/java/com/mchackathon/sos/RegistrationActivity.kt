@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -30,11 +31,10 @@ data class Contact(
 
 /**
  * A single-file RegistrationActivity:
- *  - Data parsing / saving logic
- *  - A scrollable screen with personal details + multiple emergency contacts
- *  - Pre-population from user_data.txt
- *  - The first emergency contact cannot be removed, ensuring at least one remains
- *  - White background, black borders around contacts, and a purple trashcan icon for removal
+ * - Data parsing/saving logic.
+ * - A scrollable screen with personal details and multiple emergency contacts.
+ * - Pre-population from user_data.txt.
+ * - The first emergency contact cannot be removed.
  */
 class RegistrationActivity : ComponentActivity() {
 
@@ -54,15 +54,11 @@ class RegistrationActivity : ComponentActivity() {
             return
         }
 
-        // Parse existing CSV (if any) to pre-fill
+        // Parse existing CSV (if any) to pre-fill personal info and contacts.
         val parts = if (dataFile.exists()) dataFile.readText().split(",") else emptyList()
-
-        // Personal info: indices [0..2]
         val existingFirstName = parts.getOrNull(0) ?: ""
         val existingLastName = parts.getOrNull(1) ?: ""
         val existingMobileNumber = parts.getOrNull(2) ?: ""
-
-        // Remaining items => chunked in pairs => each contact has (name, mobile)
         val contactsParts = if (parts.size > 3) parts.drop(3) else emptyList()
         val existingContacts = contactsParts.chunked(2).map {
             Contact(
@@ -78,7 +74,7 @@ class RegistrationActivity : ComponentActivity() {
                 initialMobileNumber = existingMobileNumber,
                 initialContacts = existingContacts,
                 onRegister = { firstName, lastName, personalMobile, contacts ->
-                    // Validate personal fields
+                    // Validate personal fields.
                     if (firstName.isBlank() || lastName.isBlank() || personalMobile.isBlank()) {
                         Toast.makeText(
                             this,
@@ -87,7 +83,7 @@ class RegistrationActivity : ComponentActivity() {
                         ).show()
                         return@RegistrationScreen
                     }
-                    // Must have at least one contact
+                    // Must have at least one contact.
                     if (contacts.isEmpty()) {
                         Toast.makeText(
                             this,
@@ -96,7 +92,7 @@ class RegistrationActivity : ComponentActivity() {
                         ).show()
                         return@RegistrationScreen
                     }
-                    // Validate that no contact field is blank
+                    // Validate that no contact field is blank.
                     if (contacts.any { it.name.isBlank() || it.mobile.isBlank() }) {
                         Toast.makeText(
                             this,
@@ -106,10 +102,9 @@ class RegistrationActivity : ComponentActivity() {
                         return@RegistrationScreen
                     }
 
-                    // Save CSV
+                    // Save CSV.
                     saveUserDetails(dataFile, firstName, lastName, personalMobile, contacts)
-
-                    // Then go to SOS
+                    // Then go to SOS.
                     startActivity(Intent(this, SosActivity::class.java))
                     finish()
                 }
@@ -138,7 +133,8 @@ class RegistrationActivity : ComponentActivity() {
 }
 
 /**
- * RegistrationScreen with personal details, multiple contacts, and a "Save" button.
+ * RegistrationScreen that handles personal details and multiple emergency contacts.
+ * The content (personal details and contact list) is scrollable, while the bottom bar remains fixed.
  */
 @Composable
 fun RegistrationScreen(
@@ -146,41 +142,53 @@ fun RegistrationScreen(
     initialLastName: String,
     initialMobileNumber: String,
     initialContacts: List<Contact>,
-    onRegister: (
-        firstName: String,
-        lastName: String,
-        personalMobile: String,
-        contacts: List<Contact>
-    ) -> Unit
+    onRegister: (firstName: String, lastName: String, personalMobile: String, contacts: List<Contact>) -> Unit
 ) {
-    // States for personal details
     var firstName by remember { mutableStateOf(initialFirstName) }
     var lastName by remember { mutableStateOf(initialLastName) }
     var personalMobile by remember { mutableStateOf(initialMobileNumber) }
-
-    // Dynamic list of contacts (name + mobile)
     var contacts by remember {
         mutableStateOf(
-            // Ensure there's at least 1 contact. If empty, create one blank contact.
             if (initialContacts.isNotEmpty()) initialContacts else listOf(Contact("", ""))
         )
     }
-
     val scrollState = rememberScrollState()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color.White  // Force background to stay white
+        containerColor = Color.White,
+        bottomBar = {
+            // Fixed bottom bar with "Add Another Contact" and "Save" buttons.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { contacts = contacts + Contact("", "") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Add Another Contact")
+                }
+                Button(
+                    onClick = { onRegister(firstName, lastName, personalMobile, contacts) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Save")
+                }
+            }
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp)
                 .verticalScroll(scrollState)
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // PERSONAL DETAILS
+            // Personal details section.
             Text("Personal Details", style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(
                 value = firstName,
@@ -201,55 +209,31 @@ fun RegistrationScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // EMERGENCY CONTACTS
+            // Emergency contacts section.
             Text("Emergency Contacts", style = MaterialTheme.typography.titleLarge)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 contacts.forEachIndexed { index, contact ->
-                    // The first contact (index = 0) is not removable
-                    val canRemove = (index > 0)
+                    val canRemove = index > 0
                     ContactRow(
                         contact = contact,
                         isRemovable = canRemove,
                         onChange = { newContact ->
-                            // Replace the contact at 'index'
                             contacts = contacts.mapIndexed { i, old ->
                                 if (i == index) newContact else old
                             }
                         },
-                        onRemove = {
-                            // Remove this contact if allowed
-                            contacts = contacts.filterIndexed { i, _ -> i != index }
-                        }
+                        onRemove = { contacts = contacts.filterIndexed { i, _ -> i != index } }
                     )
                 }
-
-                Button(
-                    onClick = {
-                        // Add another blank contact
-                        contacts = contacts + Contact(name = "", mobile = "")
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Add Another Contact")
-                }
-            }
-
-            // REGISTER BUTTON
-            Button(
-                onClick = {
-                    onRegister(firstName, lastName, personalMobile, contacts)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Save")
             }
         }
     }
 }
 
 /**
- * A row (or small column) that lets the user edit a single Contact's name + mobile,
- * with a black border. If isRemovable=false (the first contact), we hide the trashcan icon.
+ * A composable row that lets the user edit a single contact's name and mobile.
+ * It is wrapped in a Card with a black border.
+ * If the contact is removable (i.e. not the first contact), a round Material button with a trash icon is displayed.
  */
 @Composable
 fun ContactRow(
@@ -279,7 +263,6 @@ fun ContactRow(
                 label = { Text("Contact Name") },
                 modifier = Modifier.fillMaxWidth()
             )
-
             OutlinedTextField(
                 value = mobile,
                 onValueChange = {
@@ -289,18 +272,21 @@ fun ContactRow(
                 label = { Text("Contact Mobile") },
                 modifier = Modifier.fillMaxWidth()
             )
-
             if (isRemovable) {
                 Row(
                     horizontalArrangement = Arrangement.End,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // A trashcan icon button for removing (tinted purple)
-                    IconButton(onClick = onRemove) {
+                    // A round Material button with only a trash icon.
+                    Button(
+                        onClick = onRemove,
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(8.dp),
+                        modifier = Modifier.size(40.dp)  // Adjust the size as needed.
+                    ) {
                         Icon(
                             imageVector = Icons.Filled.Delete,
-                            contentDescription = "Remove Contact",
-                            tint = Color(0xFF6200EE) // Purple color
+                            contentDescription = "Remove Contact"
                         )
                     }
                 }
