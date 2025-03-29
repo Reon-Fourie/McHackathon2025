@@ -15,33 +15,51 @@ import java.io.File
 
 class RegistrationActivity : ComponentActivity() {
 
-    // Name of the local file where we'll store user data
     private val fileName = "user_data.txt"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
+        // The local data file
         val dataFile = File(filesDir, fileName)
 
-        // 1. Check if the file exists (and optionally if it has content)
-        if (dataFile.exists() && dataFile.readText().isNotBlank()) {
-            // If data file already exists, go directly to SosActivity
+        // Should we skip the normal auto-jump to SOS?
+        // (true if user clicked "Settings" in SosActivity to edit)
+        val skipCheck = intent.getBooleanExtra("skipCheck", false)
+
+        // If NOT skipping and the file is non-empty, jump to SOS
+        if (!skipCheck && dataFile.exists() && dataFile.readText().isNotBlank()) {
             startActivity(Intent(this, SosActivity::class.java))
             finish()
             return
         }
 
-        // Otherwise, show the registration screen
-        enableEdgeToEdge()
+        // Otherwise, parse existing data (if any) to prefill the text fields
+        val parts = if (dataFile.exists()) dataFile.readText().split(",") else emptyList()
+        val existingFirstName = parts.getOrNull(0) ?: ""
+        val existingLastName = parts.getOrNull(1) ?: ""
+        val existingMobileNumber = parts.getOrNull(2) ?: ""
+        val existingEContactName = parts.getOrNull(3) ?: ""
+        val existingEContactMobile = parts.getOrNull(4) ?: ""
+
+        // Set the content with pre-filled data (if found)
         setContent {
             RegistrationScreen(
+                initialFirstName = existingFirstName,
+                initialLastName = existingLastName,
+                initialMobileNumber = existingMobileNumber,
+                initialEContactName = existingEContactName,
+                initialEContactMobile = existingEContactMobile,
                 onRegister = { firstName, lastName, mobile, eContactName, eContactMobile ->
-                    // Basic validation
-                    if (firstName.isBlank() || lastName.isBlank() || mobile.isBlank() ||
-                        eContactName.isBlank() || eContactMobile.isBlank()) {
+                    // Validate
+                    if (
+                        firstName.isBlank() || lastName.isBlank() || mobile.isBlank() ||
+                        eContactName.isBlank() || eContactMobile.isBlank()
+                    ) {
                         Toast.makeText(this, "All fields are required!", Toast.LENGTH_SHORT).show()
                     } else {
-                        // 2. Save details in local file
+                        // Write the new data
                         saveUserDetails(
                             dataFile,
                             firstName,
@@ -51,7 +69,7 @@ class RegistrationActivity : ComponentActivity() {
                             eContactMobile
                         )
 
-                        // 3. Navigate to SosActivity
+                        // Then go to SOS
                         startActivity(Intent(this, SosActivity::class.java))
                         finish()
                     }
@@ -60,9 +78,6 @@ class RegistrationActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Writes user details to a local file in internal storage.
-     */
     private fun saveUserDetails(
         dataFile: File,
         firstName: String,
@@ -71,35 +86,37 @@ class RegistrationActivity : ComponentActivity() {
         eContactName: String,
         eContactMobile: String
     ) {
-        // Example: write them in a simple comma-separated form:
-        // firstName,lastName,mobile,eContactName,eContactMobile
-        // Or you could write JSON or any format you prefer
+        // e.g. first,last,mobile,eContactName,eContactMobile
         val combinedData = listOf(
             firstName,
             lastName,
             mobile,
             eContactName,
             eContactMobile
-        ).joinToString(separator = ",")
+        ).joinToString(",")
 
-        // Write text to the file (overwriting existing content, if any)
         dataFile.writeText(combinedData)
     }
 }
 
 /**
- * Composable screen that collects user details.
+ * RegistrationScreen that can be **pre-filled** with existing data.
  */
 @Composable
 fun RegistrationScreen(
+    initialFirstName: String,
+    initialLastName: String,
+    initialMobileNumber: String,
+    initialEContactName: String,
+    initialEContactMobile: String,
     onRegister: (String, String, String, String, String) -> Unit
 ) {
-    // State for each input field
-    var firstName by remember { mutableStateOf("") }
-    var lastName by remember { mutableStateOf("") }
-    var mobileNumber by remember { mutableStateOf("") }
-    var emergencyContactName by remember { mutableStateOf("") }
-    var emergencyContactMobile by remember { mutableStateOf("") }
+    // States are initialized with the "existing" data
+    var firstName by remember { mutableStateOf(initialFirstName) }
+    var lastName by remember { mutableStateOf(initialLastName) }
+    var mobileNumber by remember { mutableStateOf(initialMobileNumber) }
+    var emergencyContactName by remember { mutableStateOf(initialEContactName) }
+    var emergencyContactMobile by remember { mutableStateOf(initialEContactMobile) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize()
@@ -146,7 +163,7 @@ fun RegistrationScreen(
 
             Button(
                 onClick = {
-                    // Invoke callback to handle registration logic
+                    // Pass back the final values
                     onRegister(
                         firstName,
                         lastName,

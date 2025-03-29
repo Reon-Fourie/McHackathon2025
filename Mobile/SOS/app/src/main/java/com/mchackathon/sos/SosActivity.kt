@@ -60,15 +60,10 @@ fun SosScreen() {
                 actions = {
                     IconButton(
                         onClick = {
-                            // 1) Clear the local user_data.txt before re-opening the registration.
-                            val dataFile = File(context.filesDir, "user_data.txt")
-                            if (dataFile.exists()) {
-                                dataFile.delete()
-                            }
-                            // 2) Now launch the RegistrationActivity
-                            context.startActivity(
-                                Intent(context, RegistrationActivity::class.java)
-                            )
+                            val intent = Intent(context, RegistrationActivity::class.java)
+                            // This tells RegistrationActivity we want to edit (skip auto-jump to SOS)
+                            intent.putExtra("skipCheck", true)
+                            context.startActivity(intent)
                         }
                     ) {
                         Icon(
