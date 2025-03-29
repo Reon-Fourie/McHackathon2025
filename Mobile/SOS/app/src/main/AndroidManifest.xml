@@ -22,6 +22,7 @@
         </activity>
 
         <activity android:name=".SosActivity" />
+        <activity android:name=".NotificationHistoryActivity"/>
     </application>
 
 </manifest>

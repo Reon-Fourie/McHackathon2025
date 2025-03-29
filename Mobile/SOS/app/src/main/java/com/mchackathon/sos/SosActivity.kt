@@ -14,6 +14,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -58,6 +59,7 @@ fun SosScreen() {
             CenterAlignedTopAppBar(
                 title = { /* Optional title here, or remove entirely. */ },
                 actions = {
+                    // Settings icon
                     IconButton(
                         onClick = {
                             val intent = Intent(context, RegistrationActivity::class.java)
@@ -69,6 +71,19 @@ fun SosScreen() {
                         Icon(
                             imageVector = Icons.Filled.Settings,
                             contentDescription = "Settings"
+                        )
+                    }
+
+                    // Notification icon to navigate to NotificationHistoryActivity
+                    IconButton(
+                        onClick = {
+                            val intent = Intent(context, NotificationHistoryActivity::class.java)
+                            context.startActivity(intent)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Notifications,
+                            contentDescription = "Notification History"
                         )
                     }
                 }
@@ -92,6 +107,7 @@ fun SosScreen() {
         }
     }
 }
+
 
 /**
  * A composable that draws a 3D-like button with:
