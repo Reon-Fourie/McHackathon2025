@@ -1,5 +1,6 @@
 package com.mchackathon.sos
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -12,8 +13,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import java.io.File
 
 class SosActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,27 +48,49 @@ private enum class SosState {
     Confirmed   // "Help is on the way" (green)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SosScreen() {
-    Scaffold { innerPadding ->
+    val context = LocalContext.current
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { /* Optional title here, or remove entirely. */ },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            // 1) Clear the local user_data.txt before re-opening the registration.
+                            val dataFile = File(context.filesDir, "user_data.txt")
+                            if (dataFile.exists()) {
+                                dataFile.delete()
+                            }
+                            // 2) Now launch the RegistrationActivity
+                            context.startActivity(
+                                Intent(context, RegistrationActivity::class.java)
+                            )
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = "Settings"
+                        )
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
             contentAlignment = Alignment.Center
         ) {
-            val context = LocalContext.current
-
-            // Our main "3D" button with countdown
+            // The main "3D" SOS button with countdown
             ThreeDSosButton(
-                onIdlePress = {
-                    // First time press => start countdown
-                },
-                onCountingPress = {
-                    // If pressed during countdown => cancel
-                },
+                onIdlePress = { /* first press => start countdown */ },
+                onCountingPress = { /* press again => cancel countdown */ },
                 onCountdownFinished = {
-                    // After 5s => show help is on the way
                     Toast.makeText(context, "Help is on the way!", Toast.LENGTH_SHORT).show()
                 }
             )
@@ -74,11 +99,11 @@ fun SosScreen() {
 }
 
 /**
- * A composable that draws a 3D-like button with the following behavior:
- * - Idle (red): shows "SOS".
- * - On press: enters a 5-second countdown (orange). Press again during countdown to cancel.
- * - After 5s un-cancelled, shows "Help is on the way" (green).
- * - Underneath countdown digits, show "Press to cancel".
+ * A composable that draws a 3D-like button with:
+ * - Idle (red) "SOS"
+ * - On press: 5-second countdown (orange) + "Press to cancel"
+ * - Second press during countdown => cancel & revert to Idle
+ * - After countdown ends => "Help is on the way" (green)
  */
 @Composable
 fun ThreeDSosButton(
@@ -96,20 +121,17 @@ fun ThreeDSosButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    // Animate scale: bigger => pressed or idle.
-    // We'll only scale in Idle state for clarity.
+    // Animate scale only in Idle state
     val scale by animateFloatAsState(
         targetValue = when {
-            sosState != SosState.Idle -> 1.0f        // no scale if not idle
-            isPressed -> 0.85f                       // pressed in Idle
-            else -> 1.25f                            // bigger at rest in Idle
+            sosState != SosState.Idle -> 1.0f
+            isPressed -> 0.85f
+            else -> 1.25f
         },
         animationSpec = spring(stiffness = 500f)
     )
 
-    // Start counting down whenever we enter Counting state
-    // If the user or system changes state away from Counting,
-    // this effect cancels automatically.
+    // Start counting down whenever we enter Counting
     if (sosState == SosState.Counting) {
         LaunchedEffect(sosState) {
             timeLeft = 5
@@ -123,15 +145,14 @@ fun ThreeDSosButton(
         }
     }
 
-    // Decide the text + gradient color based on state
+    // Decide button text & gradient
     val (buttonText, buttonGradient) = when (sosState) {
         SosState.Idle -> {
             "SOS" to Brush.linearGradient(
-                colors = listOf(Color(0xFFFF4D4D), Color(0xFFB71C1C))  // red
+                colors = listOf(Color(0xFFFF4D4D), Color(0xFFB71C1C)) // red
             )
         }
         SosState.Counting -> {
-            // e.g. "5", "4", "3" ...
             "$timeLeft" to Brush.linearGradient(
                 colors = listOf(Color(0xFFFF9800), Color(0xFFE65100)) // orange
             )
@@ -145,53 +166,48 @@ fun ThreeDSosButton(
 
     Box(
         modifier = Modifier
-            .size(200.dp) // base size, we scale it
+            .size(200.dp)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null
             ) {
                 when (sosState) {
                     SosState.Idle -> {
-                        // first press => start countdown
                         sosState = SosState.Counting
                         onIdlePress()
                     }
                     SosState.Counting -> {
-                        // press again => cancel => go back to idle
                         sosState = SosState.Idle
                         onCountingPress()
                     }
                     SosState.Confirmed -> {
-                        // do nothing or revert?
-                        // up to you, let's do nothing for now
+                        // do nothing or revert - ignoring for now
                     }
                 }
             }
             .scale(scale)
     ) {
-        // The "3D" look is drawn in the Canvas
+        // The "3D" circle background
         Canvas(modifier = Modifier.fillMaxSize()) {
             val diameter = size.minDimension
             val radius = diameter / 2f
             val center = Offset(diameter / 2, diameter / 2)
 
-            // Shadow behind the circle for a 3D lift
+            // Shadow
             drawCircle(
                 color = Color.Black.copy(alpha = 0.4f),
                 radius = radius,
                 center = center + Offset(0f, 4f)
             )
 
-            // Main circle with the chosen gradient
-            // We'll do a top-left to bottom-right linear gradient
-            // but you can tweak it as you like
+            // Main circle gradient
             drawCircle(
                 brush = buttonGradient,
                 radius = radius,
                 center = center
             )
 
-            // Subtle highlight arc near the top
+            // Highlight arc near the top
             drawArc(
                 color = Color.White.copy(alpha = 0.15f),
                 startAngle = -200f,
@@ -211,20 +227,20 @@ fun ThreeDSosButton(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Main text (countdown or "SOS" or "Help is on the way")
+                // Show countdown number or "SOS"/"Help is on the way"
                 Text(
                     text = buttonText,
                     color = Color.White,
-                    style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineMedium,
                     textAlign = TextAlign.Center
                 )
-                // If counting, show "Press to cancel"
+                // If counting, show "Press to cancel" beneath the number
                 if (sosState == SosState.Counting) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Press to cancel",
                         color = Color.White.copy(alpha = 0.8f),
-                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelSmall
                     )
                 }
             }
