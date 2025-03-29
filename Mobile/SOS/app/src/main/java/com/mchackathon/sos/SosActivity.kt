@@ -1,6 +1,9 @@
 package com.mchackathon.sos
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -27,64 +30,59 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import java.io.File
+import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 class SosActivity : ComponentActivity() {
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         enableEdgeToEdge()
         setContent {
-            SosScreen()
+            SosScreen(fusedLocationClient)
         }
     }
 }
 
-/**
- * States for our button logic.
- */
 private enum class SosState {
-    Idle,       // "SOS" (red)
-    Counting,   // 5-second countdown (orange)
-    Confirmed   // "Help is on the way" (green)
+    Idle, Counting, Confirmed
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SosScreen() {
+fun SosScreen(fusedLocationClient: FusedLocationProviderClient) {
     val context = LocalContext.current
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { /* Optional title here, or remove entirely. */ },
+                title = {},
                 actions = {
-                    // Settings icon
-                    IconButton(
-                        onClick = {
-                            val intent = Intent(context, RegistrationActivity::class.java)
-                            // This tells RegistrationActivity we want to edit (skip auto-jump to SOS)
-                            intent.putExtra("skipCheck", true)
-                            context.startActivity(intent)
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Settings,
-                            contentDescription = "Settings"
-                        )
+                    IconButton(onClick = {
+                        val intent = Intent(context, RegistrationActivity::class.java)
+                        intent.putExtra("skipCheck", true)
+                        context.startActivity(intent)
+                    }) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
-
-                    // Notification icon to navigate to NotificationHistoryActivity
-                    IconButton(
-                        onClick = {
-                            val intent = Intent(context, NotificationHistoryActivity::class.java)
-                            context.startActivity(intent)
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Notifications,
-                            contentDescription = "Notification History"
-                        )
+                    IconButton(onClick = {
+                        val intent = Intent(context, NotificationHistoryActivity::class.java)
+                        context.startActivity(intent)
+                    }) {
+                        Icon(Icons.Filled.Notifications, contentDescription = "Notification History")
                     }
                 }
             )
@@ -96,53 +94,87 @@ fun SosScreen() {
                 .padding(innerPadding),
             contentAlignment = Alignment.Center
         ) {
-            // The main "3D" SOS button with countdown
             ThreeDSosButton(
-                onIdlePress = { /* first press => start countdown */ },
-                onCountingPress = { /* press again => cancel countdown */ },
+                onIdlePress = {},
+                onCountingPress = {},
                 onCountdownFinished = {
-                    Toast.makeText(context, "Help is on the way!", Toast.LENGTH_SHORT).show()
+                    getLocationAndSendAlert(context, fusedLocationClient)
                 }
             )
         }
     }
 }
 
+fun getLocationAndSendAlert(context: android.content.Context, fusedLocationClient: FusedLocationProviderClient) {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        Toast.makeText(context, "Location permission not granted", Toast.LENGTH_SHORT).show()
+        return
+    }
 
-/**
- * A composable that draws a 3D-like button with:
- * - Idle (red) "SOS"
- * - On press: 5-second countdown (orange) + "Press to cancel"
- * - Second press during countdown => cancel & revert to Idle
- * - After countdown ends => "Help is on the way" (green)
- */
+    fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+        if (location != null) {
+            val latLong = "${location.latitude},${location.longitude}"
+            val json = JSONObject().apply {
+                put("name", "Marco")
+                put("surname", "McLaren")
+                put("coordinates", latLong)
+                put("callMeAt", "+27841234567")
+                put("emergencyType", "Send an ambulance")
+                put("contacts", listOf("+27721843438"))
+            }
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val client = OkHttpClient()
+                    val mediaType = "application/json".toMediaTypeOrNull()
+                    val body = json.toString().toRequestBody(mediaType)
+                    val request = Request.Builder()
+                        .url("https://your.api/endpoint") // Replace with actual endpoint
+                        .post(body)
+                        .build()
+
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                Toast.makeText(context, "Help is on the way!", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                Toast.makeText(context, "Failed to send alert", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        } else {
+            Toast.makeText(context, "Unable to get location", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
 @Composable
 fun ThreeDSosButton(
     onIdlePress: () -> Unit,
     onCountingPress: () -> Unit,
     onCountdownFinished: () -> Unit
 ) {
-    // Current state of the button
     var sosState by remember { mutableStateOf(SosState.Idle) }
-
-    // Time left in the countdown (only used in Counting state)
     var timeLeft by remember { mutableStateOf(5) }
-
-    // Manage "pressed" for scale animation (only for Idle).
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-
-    // Animate scale only in Idle state
     val scale by animateFloatAsState(
         targetValue = when {
             sosState != SosState.Idle -> 1.0f
             isPressed -> 0.85f
             else -> 1.25f
         },
-        animationSpec = spring(stiffness = 500f)
+        animationSpec = spring(stiffness = 500f), label = "scaleAnim"
     )
 
-    // Start counting down whenever we enter Counting
     if (sosState == SosState.Counting) {
         LaunchedEffect(sosState) {
             timeLeft = 5
@@ -150,38 +182,21 @@ fun ThreeDSosButton(
                 delay(1000L)
                 timeLeft--
             }
-            // If we finished the loop and never got canceled, we confirm
             sosState = SosState.Confirmed
             onCountdownFinished()
         }
     }
 
-    // Decide button text & gradient
     val (buttonText, buttonGradient) = when (sosState) {
-        SosState.Idle -> {
-            "SOS" to Brush.linearGradient(
-                colors = listOf(Color(0xFFFF4D4D), Color(0xFFB71C1C)) // red
-            )
-        }
-        SosState.Counting -> {
-            "$timeLeft" to Brush.linearGradient(
-                colors = listOf(Color(0xFFFF9800), Color(0xFFE65100)) // orange
-            )
-        }
-        SosState.Confirmed -> {
-            "Help is on the way" to Brush.linearGradient(
-                colors = listOf(Color(0xFF4CAF50), Color(0xFF087F23)) // green
-            )
-        }
+        SosState.Idle -> "SOS" to Brush.linearGradient(listOf(Color(0xFFFF4D4D), Color(0xFFB71C1C)))
+        SosState.Counting -> "$timeLeft" to Brush.linearGradient(listOf(Color(0xFFFF9800), Color(0xFFE65100)))
+        SosState.Confirmed -> "Help is on the way" to Brush.linearGradient(listOf(Color(0xFF4CAF50), Color(0xFF087F23)))
     }
 
     Box(
         modifier = Modifier
             .size(200.dp)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null
-            ) {
+            .clickable(interactionSource = interactionSource, indication = null) {
                 when (sosState) {
                     SosState.Idle -> {
                         sosState = SosState.Counting
@@ -191,63 +206,32 @@ fun ThreeDSosButton(
                         sosState = SosState.Idle
                         onCountingPress()
                     }
-                    SosState.Confirmed -> {
-                        // do nothing or revert - ignoring for now
-                    }
+                    SosState.Confirmed -> {}
                 }
             }
             .scale(scale)
     ) {
-        // The "3D" circle background
         Canvas(modifier = Modifier.fillMaxSize()) {
             val diameter = size.minDimension
             val radius = diameter / 2f
             val center = Offset(diameter / 2, diameter / 2)
-
-            // Shadow
-            drawCircle(
-                color = Color.Black.copy(alpha = 0.4f),
-                radius = radius,
-                center = center + Offset(0f, 4f)
-            )
-
-            // Main circle gradient
-            drawCircle(
-                brush = buttonGradient,
-                radius = radius,
-                center = center
-            )
-
-            // Highlight arc near the top
+            drawCircle(Color.Black.copy(alpha = 0.4f), radius, center + Offset(0f, 4f))
+            drawCircle(buttonGradient, radius, center)
             drawArc(
-                color = Color.White.copy(alpha = 0.15f),
-                startAngle = -200f,
-                sweepAngle = 100f,
-                useCenter = false,
-                topLeft = center - Offset(radius, radius),
-                size = Size(diameter, diameter)
+                Color.White.copy(alpha = 0.15f), -200f, 100f, false,
+                topLeft = center - Offset(radius, radius), size = Size(diameter, diameter)
             )
         }
-
-        // Text in the center
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                // Show countdown number or "SOS"/"Help is on the way"
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Text(
                     text = buttonText,
                     color = Color.White,
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.headlineMedium
                 )
-                // If counting, show "Press to cancel" beneath the number
                 if (sosState == SosState.Counting) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Press to cancel",
                         color = Color.White.copy(alpha = 0.8f),
