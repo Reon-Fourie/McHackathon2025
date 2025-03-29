@@ -33,7 +33,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -51,6 +53,12 @@ class SosActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         enableEdgeToEdge()
+
+        // Request permission at runtime if not granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1001)
+        }
+
         setContent {
             SosScreen(fusedLocationClient)
         }
@@ -111,49 +119,53 @@ fun getLocationAndSendAlert(context: android.content.Context, fusedLocationClien
         return
     }
 
-    fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
-        if (location != null) {
-            val latLong = "${location.latitude},${location.longitude}"
-            val json = JSONObject().apply {
-                put("name", "Marco")
-                put("surname", "McLaren")
-                put("coordinates", latLong)
-                put("callMeAt", "+27841234567")
-                put("emergencyType", "Send an ambulance")
-                put("contacts", listOf("+27721843438"))
-            }
+    val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000).build()
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val client = OkHttpClient()
-                    val mediaType = "application/json".toMediaTypeOrNull()
-                    val body = json.toString().toRequestBody(mediaType)
-                    val request = Request.Builder()
-                        .url("https://your.api/endpoint") // Replace with actual endpoint
-                        .post(body)
-                        .build()
+    fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+        .addOnSuccessListener { location: Location? ->
+            if (location != null) {
+                val latLong = "${location.latitude},${location.longitude}"
+                val json = JSONObject().apply {
+                    put("name", "Marco")
+                    put("surname", "McLaren")
+                    put("coordinates", latLong)
+                    put("callMeAt", "+27841234567")
+                    put("emergencyType", "Send an ambulance")
+                    put("contacts", listOf("+27721843438"))
+                }
 
-                    client.newCall(request).execute().use { response ->
-                        if (response.isSuccessful) {
-                            CoroutineScope(Dispatchers.Main).launch {
-                                Toast.makeText(context, "Help is on the way!", Toast.LENGTH_SHORT).show()
-                            }
-                        } else {
-                            CoroutineScope(Dispatchers.Main).launch {
-                                Toast.makeText(context, "Failed to send alert", Toast.LENGTH_SHORT).show()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val client = OkHttpClient()
+                        val mediaType = "application/json".toMediaTypeOrNull()
+                        val body = json.toString().toRequestBody(mediaType)
+                        val request = Request.Builder()
+                            .url("" +
+                                    "") // Replace with actual endpoint
+                            .post(body)
+                            .build()
+
+                        client.newCall(request).execute().use { response ->
+                            if (response.isSuccessful) {
+                                CoroutineScope(Dispatchers.Main).launch {
+                                    Toast.makeText(context, "Help is on the way!", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                CoroutineScope(Dispatchers.Main).launch {
+                                    Toast.makeText(context, "Failed to send alert", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
-                    }
-                } catch (e: Exception) {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
+            } else {
+                Toast.makeText(context, "Unable to get location", Toast.LENGTH_SHORT).show()
             }
-        } else {
-            Toast.makeText(context, "Unable to get location", Toast.LENGTH_SHORT).show()
         }
-    }
 }
 
 @Composable
