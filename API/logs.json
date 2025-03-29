@@ -1,0 +1,158 @@
+[
+  {
+    "timestamp": "2025-03-29T09:26:24.305Z",
+    "name": "Marco",
+    "surname": "McLaren",
+    "coordinates": "-26.2041, 28.0473",
+    "contacts": [
+      "+27721843438"
+    ],
+    "results": [
+      {
+        "number": "+27721843438",
+        "sid": "SMad35128d3958153df054130b3b131941",
+        "status": "sent"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-03-29T09:27:54.166Z",
+    "name": "Marco",
+    "surname": "McLaren",
+    "coordinates": "-25.785463608435922, 28.2843885226407",
+    "contacts": [
+      "+27721843438"
+    ],
+    "results": [
+      {
+        "number": "+27721843438",
+        "sid": "SM7829c56e7579d3585e9482d589992398",
+        "status": "sent"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-03-29T09:31:09.534Z",
+    "name": "Marco",
+    "surname": "McLaren",
+    "coordinates": "-25.785463608435922,28.2843885226407",
+    "contacts": [
+      "+27721843438"
+    ],
+    "results": [
+      {
+        "number": "+27721843438",
+        "sid": "SM866be607d6d9778a5517b71c7a9de737",
+        "status": "sent"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-03-29T09:33:06.705Z",
+    "name": "Marco",
+    "surname": "McLaren",
+    "coordinates": "-25.785623874582612,28.283897107605178",
+    "contacts": [
+      "+27721843438"
+    ],
+    "results": [
+      {
+        "number": "+27721843438",
+        "sid": "SM47b5e5ee202bd015a70938c14180bfe7",
+        "status": "sent"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-03-29T09:35:42.447Z",
+    "name": "Marco",
+    "surname": "McLaren",
+    "coordinates": "-25.785623874582612,28.283897107605178",
+    "contacts": [
+      "+27623677191"
+    ],
+    "results": [
+      {
+        "number": "+27623677191",
+        "sid": "SMeba21612a5e733e8e3e307f4ec8f4255",
+        "status": "sent"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-03-29T09:37:19.868Z",
+    "name": "Marco",
+    "surname": "McLaren",
+    "coordinates": "-25.785623874582612,28.283897107605178",
+    "contacts": [
+      "+27721843438"
+    ],
+    "results": [
+      {
+        "number": "+27721843438",
+        "sid": "SMdc02ffeb8c644ae162c1436dd6a05bdf",
+        "status": "sent"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-03-29T09:47:42.774Z",
+    "name": "Marco",
+    "surname": "McLaren",
+    "coordinates": "-25.785623874582612,28.283897107605178",
+    "contacts": [
+      "+27721843438,+27794925127"
+    ],
+    "results": [
+      {
+        "number": "+27721843438,+27794925127",
+        "error": "The 'To' number +27721843438,+27794925127 is not a valid phone number.",
+        "status": "failed"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-03-29T09:47:56.842Z",
+    "name": "Marco",
+    "surname": "McLaren",
+    "coordinates": "-25.785623874582612,28.283897107605178",
+    "contacts": [
+      "+27721843438",
+      "+27794925127"
+    ],
+    "results": [
+      {
+        "number": "+27721843438",
+        "sid": "SM853a55bfce0ede6c28938522d625e5ed",
+        "status": "sent"
+      },
+      {
+        "number": "+27794925127",
+        "sid": "SM3a74c53bc6ef78af60eab4a56a17b647",
+        "status": "sent"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-03-29T09:56:36.670Z",
+    "name": "Marco",
+    "surname": "McLaren",
+    "coordinates": "-25.785623874582612,28.283897107605178",
+    "contacts": [
+      "+27721843438",
+      "+27794925127"
+    ],
+    "results": [
+      {
+        "number": "+27721843438",
+        "sid": "SM54ce9bc137ccce3c9855a5bb15bf5021",
+        "status": "sent"
+      },
+      {
+        "number": "+27794925127",
+        "sid": "SM09ce3aa8c03be6e8a81797824e7642d2",
+        "status": "sent"
+      }
+    ]
+  }
+]
