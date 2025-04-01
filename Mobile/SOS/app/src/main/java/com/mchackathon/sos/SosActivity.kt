@@ -45,6 +45,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.File
 
 class SosActivity : ComponentActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -119,6 +120,27 @@ fun getLocationAndSendAlert(context: android.content.Context, fusedLocationClien
         return
     }
 
+    // Read local file "user_data.txt" from the app's files directory
+    val dataFile = File(context.filesDir, "user_data.txt")
+    if (!dataFile.exists() || dataFile.readText().isBlank()) {
+        Toast.makeText(context, "User data not found", Toast.LENGTH_SHORT).show()
+        return
+    }
+    val tokens = dataFile.readText().split(",")
+    // Expecting tokens: [firstName, lastName, personalMobile, contact1Name, contact1Mobile, ...]
+    val firstName = tokens.getOrNull(0) ?: ""
+    val lastName = tokens.getOrNull(1) ?: ""
+    val personalMobile = tokens.getOrNull(2) ?: ""
+    // Extract mobile numbers from contacts (i.e. tokens at positions 4, 6, 8, …)
+    val contacts = mutableListOf<String>()
+    for (i in 3 until tokens.size step 2) {
+        // Make sure there's a mobile number following the contact name
+        val mobile = tokens.getOrNull(i + 1) ?: ""
+        if (mobile.isNotBlank()) {
+            contacts.add(mobile)
+        }
+    }
+
     val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000).build()
 
     fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
@@ -126,12 +148,13 @@ fun getLocationAndSendAlert(context: android.content.Context, fusedLocationClien
             if (location != null) {
                 val latLong = "${location.latitude},${location.longitude}"
                 val json = JSONObject().apply {
-                    put("name", "Marco")
-                    put("surname", "McLaren")
+                    put("name", firstName)
+                    put("surname", lastName)
                     put("coordinates", latLong)
-                    put("callMeAt", "+27841234567")
+                    put("callMeAt", personalMobile)
+                    // Keeping emergencyType hardcoded
                     put("emergencyType", "Send an ambulance")
-                    put("contacts", listOf("+27721843438"))
+                    put("contacts", org.json.JSONArray(contacts))
                 }
 
                 CoroutineScope(Dispatchers.IO).launch {
@@ -140,8 +163,7 @@ fun getLocationAndSendAlert(context: android.content.Context, fusedLocationClien
                         val mediaType = "application/json".toMediaTypeOrNull()
                         val body = json.toString().toRequestBody(mediaType)
                         val request = Request.Builder()
-                            .url("" +
-                                    "") // Replace with actual endpoint
+                            .url("https://app-swiftly-brcffxgscnhpejdg.southafricanorth-01.azurewebsites.net/sos") // Replace with actual endpoint URL
                             .post(body)
                             .build()
 
